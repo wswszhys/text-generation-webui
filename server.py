@@ -143,7 +143,19 @@ def create_interface():
     # Interface state elements
     shared.input_elements = ui.list_interface_input_elements()
 
-    with gr.Blocks(css=css, analytics_enabled=False, title=title, theme=ui.theme) as shared.gradio['interface']:
+    head_js = """
+    <script>
+        // 确保只在未定义时初始化，防止页面部分刷新时被清空
+        if (window.input_history === undefined) {
+            window.input_history = [];
+            console.log("Input history initialized");
+        }
+        if (window.history_idx === undefined) {
+            window.history_idx = -1;
+        }
+    </script>
+    """
+    with gr.Blocks(head=head_js, css=css, analytics_enabled=False, title=title, theme=ui.theme) as shared.gradio['interface']:
 
         # Interface state
         shared.gradio['interface_state'] = gr.State({k: None for k in shared.input_elements})

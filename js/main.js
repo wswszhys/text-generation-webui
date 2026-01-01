@@ -1,7 +1,6 @@
 // ------------------------------------------------
 // Main
 // ------------------------------------------------
-
 let main_parent = document.getElementById("chat-tab").parentNode;
 let extensions = document.getElementById("extensions");
 
@@ -10,33 +9,38 @@ main_parent.style = "padding: 0; margin: 0";
 main_parent.parentNode.style = "gap: 0";
 main_parent.parentNode.parentNode.style = "padding: 0";
 
-document.querySelector(".header_bar").addEventListener("click", function(event) {
-  if (event.target.tagName !== "BUTTON") return;
+document
+  .querySelector(".header_bar")
+  .addEventListener("click", function (event) {
+    if (event.target.tagName !== "BUTTON") return;
 
-  const buttonText = event.target.textContent.trim();
-  const extensionsVisible = ["Chat", "Default", "Notebook"].includes(buttonText);
-  const chatVisible = buttonText === "Chat";
-  const showControlsChecked = document.querySelector("#show-controls input").checked;
-  const extensions = document.querySelector("#extensions");
+    const buttonText = event.target.textContent.trim();
+    const extensionsVisible = ["Chat", "Default", "Notebook"].includes(
+      buttonText
+    );
+    const chatVisible = buttonText === "Chat";
+    const showControlsChecked = document.querySelector(
+      "#show-controls input"
+    ).checked;
+    const extensions = document.querySelector("#extensions");
 
-  if (extensionsVisible) {
-    if (extensions) {
-      extensions.style.display = "flex";
+    if (extensionsVisible) {
+      if (extensions) {
+        extensions.style.display = "flex";
+      }
+
+      this.style.marginBottom = chatVisible ? "0px" : "19px";
+
+      if (chatVisible && !showControlsChecked) {
+        document.querySelectorAll("#extensions").forEach((element) => {
+          element.style.display = "none";
+        });
+      }
+    } else {
+      this.style.marginBottom = "19px";
+      if (extensions) extensions.style.display = "none";
     }
-
-    this.style.marginBottom = chatVisible ? "0px" : "19px";
-
-    if (chatVisible && !showControlsChecked) {
-      document.querySelectorAll("#extensions").forEach(element => {
-        element.style.display = "none";
-      });
-    }
-
-  } else {
-    this.style.marginBottom = "19px";
-    if (extensions) extensions.style.display = "none";
-  }
-});
+  });
 
 //------------------------------------------------
 // Keyboard shortcuts
@@ -44,11 +48,12 @@ document.querySelector(".header_bar").addEventListener("click", function(event) 
 
 // --- Helper functions --- //
 function isModifiedKeyboardEvent() {
-  return (event instanceof KeyboardEvent &&
-    event.shiftKey ||
+  return (
+    (event instanceof KeyboardEvent && event.shiftKey) ||
     event.ctrlKey ||
     event.altKey ||
-    event.metaKey);
+    event.metaKey
+  );
 }
 
 function isFocusedOnEditableTextbox() {
@@ -58,7 +63,10 @@ function isFocusedOnEditableTextbox() {
 }
 
 let previousTabId = "chat-tab-button";
-document.addEventListener("keydown", function(event) {
+document.addEventListener("keydown", function (event) {
+  const textbox = document.querySelector("#chat-input textarea");
+  const isEditing = event.target === textbox; // 判断当前是否正在输入框操作
+
   // Stop generation on Esc pressed
   if (event.key === "Escape") {
     // Find the element with id 'stop' and click it
@@ -69,7 +77,7 @@ document.addEventListener("keydown", function(event) {
     return;
   }
 
-  if (!document.querySelector("#chat-tab").checkVisibility() ) {
+  if (!document.querySelector("#chat-tab").checkVisibility()) {
     return;
   }
 
@@ -85,11 +93,16 @@ document.addEventListener("keydown", function(event) {
       arr[arr.length - 1].focus();
     }
   }
-
   // Regenerate on Ctrl + Enter
   else if (event.ctrlKey && event.key === "Enter") {
-    event.preventDefault();
-    document.getElementById("Regenerate").click();
+    if (textbox && document.activeElement === textbox) {
+      // 【核心保存逻辑】
+      if (textbox.value.trim()) {
+        window.input_history.push(textbox.value); // 将当前输入框的文字压入数组
+        window.history_idx = window.input_history.length; // 更新索引至最新
+      }
+    }
+    document.getElementById("Generate").click();
   }
 
   // Continue on Alt + Enter
@@ -109,16 +122,40 @@ document.addEventListener("keydown", function(event) {
     event.preventDefault();
     document.getElementById("Impersonate").click();
   }
-
+  if (!isModifiedKeyboardEvent() && isEditing) {
+    if (
+      !isModifiedKeyboardEvent() &&
+      event.key === "ArrowUp" &&
+      window.input_history.length > 0
+    ) {
+      if (textbox && document.activeElement === textbox) {
+        if (window.history_idx > 0) {
+          window.history_idx--;
+          textbox.value = window.input_history[window.history_idx];
+          textbox.dispatchEvent(new Event("input")); // 触发Gradio更新
+        }
+      }
+    }
+    if (!isModifiedKeyboardEvent() && event.key === "ArrowDown") {
+      if (textbox && document.activeElement === textbox) {
+        if (window.history_idx < window.input_history.length - 1) {
+          window.history_idx++;
+          textbox.value = window.input_history[window.history_idx];
+        } else {
+          window.history_idx = window.input_history.length;
+          textbox.value = "";
+        }
+        textbox.dispatchEvent(new Event("input"));
+      }
+    }
+  }
   // --- Simple version navigation --- //
   if (!isFocusedOnEditableTextbox()) {
     // Version navigation on Arrow keys (horizontal)
     if (!isModifiedKeyboardEvent() && event.key === "ArrowLeft") {
       event.preventDefault();
       navigateLastAssistantMessage("left");
-    }
-
-    else if (!isModifiedKeyboardEvent() && event.key === "ArrowRight") {
+    } else if (!isModifiedKeyboardEvent() && event.key === "ArrowRight") {
       event.preventDefault();
       if (!navigateLastAssistantMessage("right")) {
         // If can't navigate right (last version), regenerate
@@ -126,7 +163,6 @@ document.addEventListener("keydown", function(event) {
       }
     }
   }
-
 });
 
 //------------------------------------------------
@@ -140,22 +176,24 @@ typingSibling.insertBefore(typing, typingSibling.childNodes[2]);
 //------------------------------------------------
 // Chat scrolling
 //------------------------------------------------
-const targetElement = document.getElementById("chat").parentNode.parentNode.parentNode;
+const targetElement =
+  document.getElementById("chat").parentNode.parentNode.parentNode;
 targetElement.classList.add("pretty_scrollbar");
 targetElement.classList.add("chat-parent");
 window.isScrolled = false;
 let scrollTimeout;
 
-targetElement.addEventListener("scroll", function() {
+targetElement.addEventListener("scroll", function () {
   let diff = targetElement.scrollHeight - targetElement.clientHeight;
-  let isAtBottomNow = Math.abs(targetElement.scrollTop - diff) <= 10 || diff == 0;
+  let isAtBottomNow =
+    Math.abs(targetElement.scrollTop - diff) <= 10 || diff == 0;
 
   // Add scrolling class to disable hover effects
   if (window.isScrolled || !isAtBottomNow) {
     targetElement.classList.add("scrolling");
   }
 
-  if(isAtBottomNow) {
+  if (isAtBottomNow) {
     window.isScrolled = false;
   } else {
     window.isScrolled = true;
@@ -170,12 +208,13 @@ targetElement.addEventListener("scroll", function() {
 });
 
 // Create a MutationObserver instance
-const observer = new MutationObserver(function(mutations) {
+const observer = new MutationObserver(function (mutations) {
   // Check if this is just the scrolling class being toggled
-  const isScrollingClassOnly = mutations.every(mutation =>
-    mutation.type === "attributes" &&
-    mutation.attributeName === "class" &&
-    mutation.target === targetElement
+  const isScrollingClassOnly = mutations.every(
+    (mutation) =>
+      mutation.type === "attributes" &&
+      mutation.attributeName === "class" &&
+      mutation.target === targetElement
   );
 
   if (targetElement.classList.contains("_generating")) {
@@ -206,7 +245,13 @@ const observer = new MutationObserver(function(mutations) {
       // Add padding to the messages container to create room for the last message.
       // The purpose of this is to avoid constant scrolling during streaming in
       // instruct mode.
-      let bufferHeight = Math.max(0, Math.max(window.innerHeight - 128 - 84, window.innerHeight - prevSibling.offsetHeight - 84) - lastChild.offsetHeight);
+      let bufferHeight = Math.max(
+        0,
+        Math.max(
+          window.innerHeight - 128 - 84,
+          window.innerHeight - prevSibling.offsetHeight - 84
+        ) - lastChild.offsetHeight
+      );
 
       // Subtract header height when screen width is <= 924px
       if (window.innerWidth <= 924) {
@@ -224,7 +269,7 @@ const config = {
   subtree: true,
   characterData: true,
   attributeOldValue: true,
-  characterDataOldValue: true
+  characterDataOldValue: true,
 };
 
 // Start observing the target element
@@ -244,7 +289,9 @@ function isElementVisibleOnScreen(element) {
 }
 
 function doSyntaxHighlighting() {
-  const messageBodies = document.getElementById("chat").querySelectorAll(".message-body");
+  const messageBodies = document
+    .getElementById("chat")
+    .querySelectorAll(".message-body");
 
   if (messageBodies.length > 0) {
     observer.disconnect();
@@ -260,7 +307,9 @@ function doSyntaxHighlighting() {
           hasSeenVisible = true;
 
           // Handle both code and math in a single pass through each message
-          const codeBlocks = messageBody.querySelectorAll("pre code:not([data-highlighted])");
+          const codeBlocks = messageBody.querySelectorAll(
+            "pre code:not([data-highlighted])"
+          );
           codeBlocks.forEach((codeBlock) => {
             hljs.highlightElement(codeBlock);
             codeBlock.setAttribute("data-highlighted", "true");
@@ -268,8 +317,10 @@ function doSyntaxHighlighting() {
           });
 
           // Only render math in visible elements
-          const mathContainers = messageBody.querySelectorAll("p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption, caption, dd, dt");
-          mathContainers.forEach(container => {
+          const mathContainers = messageBody.querySelectorAll(
+            "p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption, caption, dd, dt"
+          );
+          mathContainers.forEach((container) => {
             if (isElementVisibleOnScreen(container)) {
               renderMathInElement(container, {
                 delimiters: [
@@ -281,8 +332,8 @@ function doSyntaxHighlighting() {
             }
           });
         } else if (hasSeenVisible) {
-        // We've seen visible messages but this one is not visible
-        // Since we're going from last to first, we can break
+          // We've seen visible messages but this one is not visible
+          // Since we're going from last to first, we can break
           break;
         }
       }
@@ -296,7 +347,7 @@ function doSyntaxHighlighting() {
 // Add some scrollbars
 //------------------------------------------------
 const textareaElements = document.querySelectorAll(".add_scrollbar textarea");
-for(i = 0; i < textareaElements.length; i++) {
+for (i = 0; i < textareaElements.length; i++) {
   textareaElements[i].classList.remove("scroll-hide");
   textareaElements[i].classList.add("pretty_scrollbar");
   textareaElements[i].style.resize = "none";
@@ -306,9 +357,10 @@ for(i = 0; i < textareaElements.length; i++) {
 // Remove some backgrounds
 //------------------------------------------------
 const noBackgroundelements = document.querySelectorAll(".no-background");
-for(i = 0; i < noBackgroundelements.length; i++) {
+for (i = 0; i < noBackgroundelements.length; i++) {
   noBackgroundelements[i].parentNode.style.border = "none";
-  noBackgroundelements[i].parentNode.parentNode.parentNode.style.alignItems = "center";
+  noBackgroundelements[i].parentNode.parentNode.parentNode.style.alignItems =
+    "center";
 }
 
 const slimDropdownElements = document.querySelectorAll(".slim-dropdown");
@@ -323,10 +375,13 @@ for (i = 0; i < slimDropdownElements.length; i++) {
 // The show/hide events were adapted from:
 // https://github.com/SillyTavern/SillyTavern/blob/6c8bd06308c69d51e2eb174541792a870a83d2d6/public/script.js
 //------------------------------------------------
-var buttonsInChat = document.querySelectorAll("#chat-tab #chat-buttons button, #chat-tab #chat-buttons #show-controls");
+var buttonsInChat = document.querySelectorAll(
+  "#chat-tab #chat-buttons button, #chat-tab #chat-buttons #show-controls"
+);
 var button = document.getElementById("hover-element-button");
 var menu = document.getElementById("hover-menu");
-var istouchscreen = (navigator.maxTouchPoints > 0) || "ontouchstart" in document.documentElement;
+var istouchscreen =
+  navigator.maxTouchPoints > 0 || "ontouchstart" in document.documentElement;
 
 function showMenu() {
   menu.style.display = "flex"; // Show the menu
@@ -356,7 +411,13 @@ if (buttonsInChat.length > 0) {
       if (matches && matches.length > 1) {
         // Apply the transparent-substring class to the matched substring
         const substring = matches[1];
-        const newText = buttonText.replace(substring, `&nbsp;<span class="transparent-substring">${substring.slice(1, -1)}</span>`);
+        const newText = buttonText.replace(
+          substring,
+          `&nbsp;<span class="transparent-substring">${substring.slice(
+            1,
+            -1
+          )}</span>`
+        );
         thisButton.innerHTML = newText;
       }
     }
@@ -376,8 +437,7 @@ button.addEventListener("mouseenter", function () {
 button.addEventListener("click", function () {
   if (menu.style.display === "flex") {
     hideMenu();
-  }
-  else {
+  } else {
     showMenu();
   }
 });
@@ -417,14 +477,14 @@ document.addEventListener("click", function (event) {
 
   // Handle sidebar clicks on mobile
   if (isMobile()) {
-  // Check if the click did NOT originate from any of the specified toggle buttons or elements
+    // Check if the click did NOT originate from any of the specified toggle buttons or elements
     if (
       target.closest("#navigation-toggle") !== navigationToggle &&
-    target.closest("#past-chats-toggle") !== pastChatsToggle &&
-    target.closest("#chat-controls-toggle") !== chatControlsToggle &&
-    target.closest(".header_bar") !== headerBar &&
-    target.closest("#past-chats-row") !== pastChatsRow &&
-    target.closest("#chat-controls") !== chatControlsRow
+      target.closest("#past-chats-toggle") !== pastChatsToggle &&
+      target.closest("#chat-controls-toggle") !== chatControlsToggle &&
+      target.closest(".header_bar") !== headerBar &&
+      target.closest("#past-chats-row") !== pastChatsRow &&
+      target.closest("#chat-controls") !== chatControlsRow
     ) {
       handleIndividualSidebarClose(event);
     }
@@ -434,12 +494,16 @@ document.addEventListener("click", function (event) {
 //------------------------------------------------
 // Position the chat input
 //------------------------------------------------
-document.getElementById("chat-input-row").classList.add("chat-input-positioned");
+document
+  .getElementById("chat-input-row")
+  .classList.add("chat-input-positioned");
 
 //------------------------------------------------
 // Focus on the chat input
 //------------------------------------------------
-const chatTextArea = document.getElementById("chat-input").querySelector("textarea");
+const chatTextArea = document
+  .getElementById("chat-input")
+  .querySelector("textarea");
 
 function respondToChatInputVisibility(element, callback) {
   var options = {
@@ -447,7 +511,7 @@ function respondToChatInputVisibility(element, callback) {
   };
 
   var observer = new IntersectionObserver((entries, observer) => {
-    entries.forEach(entry => {
+    entries.forEach((entry) => {
       callback(entry.intersectionRatio > 0);
     });
   }, options);
@@ -481,7 +545,9 @@ function addBigPicture() {
     this.style.visibility = "hidden";
   });
 
-  var imgElementParent = document.getElementById("chat").parentNode.parentNode.parentNode.parentNode.parentNode.parentNode.parentNode;
+  var imgElementParent =
+    document.getElementById("chat").parentNode.parentNode.parentNode.parentNode
+      .parentNode.parentNode.parentNode;
   imgElementParent.appendChild(imgElement);
 }
 
@@ -493,7 +559,7 @@ function deleteBigPicture() {
 }
 
 function toggleBigPicture() {
-  if(bigPictureVisible) {
+  if (bigPictureVisible) {
     deleteBigPicture();
     bigPictureVisible = false;
   } else {
@@ -507,7 +573,8 @@ function toggleBigPicture() {
 //------------------------------------------------
 
 // Cache DOM elements
-const chatContainer = document.getElementById("chat").parentNode.parentNode.parentNode;
+const chatContainer =
+  document.getElementById("chat").parentNode.parentNode.parentNode;
 const chatInput = document.querySelector("#chat-input textarea");
 
 // Variables to store current dimensions
@@ -516,7 +583,9 @@ let currentChatInputHeight = chatInput.clientHeight;
 //------------------------------------------------
 // Focus on the rename text area when it becomes visible
 //------------------------------------------------
-const renameTextArea = document.getElementById("rename-row").querySelector("textarea");
+const renameTextArea = document
+  .getElementById("rename-row")
+  .querySelector("textarea");
 
 function respondToRenameVisibility(element, callback) {
   var options = {
@@ -524,14 +593,13 @@ function respondToRenameVisibility(element, callback) {
   };
 
   var observer = new IntersectionObserver((entries, observer) => {
-    entries.forEach(entry => {
+    entries.forEach((entry) => {
       callback(entry.intersectionRatio > 0);
     });
   }, options);
 
   observer.observe(element);
 }
-
 
 function handleVisibilityChange(isVisible) {
   if (isVisible) {
@@ -554,8 +622,8 @@ if (document.getElementById("extensions") === null) {
 // Focus on the chat input after starting a new chat
 //------------------------------------------------
 
-document.querySelectorAll(".focus-on-chat-input").forEach(element => {
-  element.addEventListener("click", function() {
+document.querySelectorAll(".focus-on-chat-input").forEach((element) => {
+  element.addEventListener("click", function () {
     document.querySelector("#chat-input textarea").focus();
   });
 });
@@ -587,14 +655,17 @@ function moveToChatTab() {
   }
 
   // Do not show the Character dropdown in the Chat tab when "instruct" mode is selected
-  const instructRadio = document.querySelector("#chat-mode input[value=\"instruct\"]");
+  const instructRadio = document.querySelector(
+    '#chat-mode input[value="instruct"]'
+  );
   if (instructRadio && instructRadio.checked) {
     grandParent.style.display = "none";
   }
 
   grandParent.children[0].style.minWidth = "100%";
 
-  const chatControlsFirstChild = document.querySelector("#chat-controls").firstElementChild;
+  const chatControlsFirstChild =
+    document.querySelector("#chat-controls").firstElementChild;
   const newParent = chatControlsFirstChild;
   let newPosition = newParent.children.length - 3;
 
@@ -608,7 +679,10 @@ function restoreOriginalPosition() {
     if (originalIndex >= originalParent.children.length) {
       originalParent.appendChild(movedElement);
     } else {
-      originalParent.insertBefore(movedElement, originalParent.children[originalIndex]);
+      originalParent.insertBefore(
+        movedElement,
+        originalParent.children[originalIndex]
+      );
     }
 
     document.getElementById("save-character").style.display = "";
@@ -712,17 +786,26 @@ function handleIndividualSidebarClose(event) {
   const target = event.target;
 
   // Close navigation bar if click is outside and it is open
-  if (!headerBar.contains(target) && !headerBar.classList.contains("sidebar-hidden")) {
+  if (
+    !headerBar.contains(target) &&
+    !headerBar.classList.contains("sidebar-hidden")
+  ) {
     toggleSidebar(headerBar, navigationToggle, true);
   }
 
   // Close past chats row if click is outside and it is open
-  if (!pastChatsRow.contains(target) && !pastChatsRow.classList.contains("sidebar-hidden")) {
+  if (
+    !pastChatsRow.contains(target) &&
+    !pastChatsRow.classList.contains("sidebar-hidden")
+  ) {
     toggleSidebar(pastChatsRow, pastChatsToggle, true);
   }
 
   // Close chat controls row if click is outside and it is open
-  if (!chatControlsRow.contains(target) && !chatControlsRow.classList.contains("sidebar-hidden")) {
+  if (
+    !chatControlsRow.contains(target) &&
+    !chatControlsRow.classList.contains("sidebar-hidden")
+  ) {
     toggleSidebar(chatControlsRow, chatControlsToggle, true);
   }
 }
@@ -737,7 +820,10 @@ function toggleSidebar(sidebar, toggle, forceClose = false) {
 
   if (sidebar === headerBar) {
     // Special handling for header bar
-    document.documentElement.style.setProperty("--header-width", shouldClose ? "0px" : "112px");
+    document.documentElement.style.setProperty(
+      "--header-width",
+      shouldClose ? "0px" : "112px"
+    );
     pastChatsRow.classList.toggle("negative-header", shouldClose);
     pastChatsToggle.classList.toggle("negative-header", shouldClose);
     toggle.innerHTML = shouldClose ? hamburgerMenuSVG : closeMenuSVG;
@@ -770,7 +856,7 @@ function initializeSidebars() {
 
   if (isOnMobile) {
     // Mobile state: Hide sidebars and set closed states
-    [pastChatsRow, chatControlsRow, headerBar].forEach(el => {
+    [pastChatsRow, chatControlsRow, headerBar].forEach((el) => {
       el.classList.add("sidebar-hidden");
       el.classList.remove("sidebar-shown");
     });
@@ -780,7 +866,7 @@ function initializeSidebars() {
     pastChatsToggle.classList.add("negative-header", "past-chats-closed");
     pastChatsToggle.classList.remove("past-chats-open");
 
-    [chatControlsToggle, navigationToggle].forEach(el => {
+    [chatControlsToggle, navigationToggle].forEach((el) => {
       el.classList.add("chat-controls-closed");
       el.classList.remove("chat-controls-open");
     });
@@ -790,14 +876,14 @@ function initializeSidebars() {
     navigationToggle.innerHTML = hamburgerMenuSVG;
   } else {
     // Desktop state: Show sidebars and set open states
-    [pastChatsRow, chatControlsRow].forEach(el => {
+    [pastChatsRow, chatControlsRow].forEach((el) => {
       el.classList.remove("sidebar-hidden", "sidebar-shown");
     });
 
     pastChatsToggle.classList.add("past-chats-open");
     pastChatsToggle.classList.remove("past-chats-closed");
 
-    [chatControlsToggle, navigationToggle].forEach(el => {
+    [chatControlsToggle, navigationToggle].forEach((el) => {
       el.classList.add("chat-controls-open");
       el.classList.remove("chat-controls-closed");
     });
@@ -952,8 +1038,12 @@ function navigateLastAssistantMessage(direction) {
 const MAX_PLAIN_TEXT_LENGTH = 2500;
 
 function setupPasteHandler() {
-  const textbox = document.querySelector("#chat-input textarea[data-testid=\"textbox\"]");
-  const fileInput = document.querySelector("#chat-input input[data-testid=\"file-upload\"]");
+  const textbox = document.querySelector(
+    '#chat-input textarea[data-testid="textbox"]'
+  );
+  const fileInput = document.querySelector(
+    '#chat-input input[data-testid="file-upload"]'
+  );
 
   if (!textbox || !fileInput) {
     setTimeout(setupPasteHandler, 500);
@@ -963,12 +1053,18 @@ function setupPasteHandler() {
   textbox.addEventListener("paste", async (event) => {
     const text = event.clipboardData?.getData("text");
 
-    if (text && text.length > MAX_PLAIN_TEXT_LENGTH && document.querySelector("#paste_to_attachment input[data-testid=\"checkbox\"]")?.checked) {
+    if (
+      text &&
+      text.length > MAX_PLAIN_TEXT_LENGTH &&
+      document.querySelector(
+        '#paste_to_attachment input[data-testid="checkbox"]'
+      )?.checked
+    ) {
       event.preventDefault();
 
       const file = new File([text], "pasted_text.txt", {
         type: "text/plain",
-        lastModified: Date.now()
+        lastModified: Date.now(),
       });
 
       const dataTransfer = new DataTransfer();
@@ -990,78 +1086,82 @@ if (document.readyState === "loading") {
 //------------------------------------------------
 
 // File upload button
-document.querySelector("#chat-input .upload-button").title = "Upload text files, PDFs, DOCX documents, and images";
+document.querySelector("#chat-input .upload-button").title =
+  "Upload text files, PDFs, DOCX documents, and images";
 
 // Activate web search
-document.getElementById("web-search").title = "Search the internet with DuckDuckGo";
+document.getElementById("web-search").title =
+  "Search the internet with DuckDuckGo";
 
 //------------------------------------------------
 // Inline icons for deleting past chats
 //------------------------------------------------
 
 function addMiniDeletes() {
-  document.querySelectorAll("#past-chats label:not(.has-delete)").forEach(label => {
-    const container = document.createElement("span");
-    container.className = "delete-container";
+  document
+    .querySelectorAll("#past-chats label:not(.has-delete)")
+    .forEach((label) => {
+      const container = document.createElement("span");
+      container.className = "delete-container";
 
-    label.classList.add("chat-label-with-delete");
+      label.classList.add("chat-label-with-delete");
 
-    const trashBtn = document.createElement("button");
-    trashBtn.innerHTML = "🗑️";
-    trashBtn.className = "trash-btn";
+      const trashBtn = document.createElement("button");
+      trashBtn.innerHTML = "🗑️";
+      trashBtn.className = "trash-btn";
 
-    const cancelBtn = document.createElement("button");
-    cancelBtn.innerHTML = "✕";
-    cancelBtn.className = "cancel-btn";
+      const cancelBtn = document.createElement("button");
+      cancelBtn.innerHTML = "✕";
+      cancelBtn.className = "cancel-btn";
 
-    const confirmBtn = document.createElement("button");
-    confirmBtn.innerHTML = "✓";
-    confirmBtn.className = "confirm-btn";
+      const confirmBtn = document.createElement("button");
+      confirmBtn.innerHTML = "✓";
+      confirmBtn.className = "confirm-btn";
 
-    label.addEventListener("mouseenter", () => {
-      container.style.opacity = "1";
+      label.addEventListener("mouseenter", () => {
+        container.style.opacity = "1";
+      });
+
+      label.addEventListener("mouseleave", () => {
+        container.style.opacity = "0";
+      });
+
+      trashBtn.onclick = (e) => {
+        e.stopPropagation();
+        label.querySelector("input").click();
+        document.querySelector("#delete_chat").click();
+        trashBtn.style.display = "none";
+        cancelBtn.style.display = "flex";
+        confirmBtn.style.display = "flex";
+      };
+
+      cancelBtn.onclick = (e) => {
+        e.stopPropagation();
+        document.querySelector("#delete_chat-cancel").click();
+        resetButtons();
+      };
+
+      confirmBtn.onclick = (e) => {
+        e.stopPropagation();
+        document.querySelector("#delete_chat-confirm").click();
+        resetButtons();
+      };
+
+      function resetButtons() {
+        trashBtn.style.display = "inline";
+        cancelBtn.style.display = "none";
+        confirmBtn.style.display = "none";
+      }
+
+      container.append(trashBtn, cancelBtn, confirmBtn);
+      label.appendChild(container);
+      label.classList.add("has-delete");
     });
-
-    label.addEventListener("mouseleave", () => {
-      container.style.opacity = "0";
-    });
-
-    trashBtn.onclick = (e) => {
-      e.stopPropagation();
-      label.querySelector("input").click();
-      document.querySelector("#delete_chat").click();
-      trashBtn.style.display = "none";
-      cancelBtn.style.display = "flex";
-      confirmBtn.style.display = "flex";
-    };
-
-    cancelBtn.onclick = (e) => {
-      e.stopPropagation();
-      document.querySelector("#delete_chat-cancel").click();
-      resetButtons();
-    };
-
-    confirmBtn.onclick = (e) => {
-      e.stopPropagation();
-      document.querySelector("#delete_chat-confirm").click();
-      resetButtons();
-    };
-
-    function resetButtons() {
-      trashBtn.style.display = "inline";
-      cancelBtn.style.display = "none";
-      confirmBtn.style.display = "none";
-    }
-
-    container.append(trashBtn, cancelBtn, confirmBtn);
-    label.appendChild(container);
-    label.classList.add("has-delete");
-  });
 }
 
 new MutationObserver(() => addMiniDeletes()).observe(
   document.querySelector("#past-chats"),
-  {childList: true, subtree: true}
+  { childList: true, subtree: true }
 );
 addMiniDeletes();
 
@@ -1079,7 +1179,7 @@ document.fonts.addEventListener("loadingdone", (event) => {
   }, 50);
 });
 
-(function() {
+(function () {
   const chatParent = document.querySelector(".chat-parent");
   const chatInputRow = document.querySelector("#chat-input-row");
   const originalMarginBottom = 75;
@@ -1088,7 +1188,9 @@ document.fonts.addEventListener("loadingdone", (event) => {
   function updateMargin() {
     const currentHeight = chatInputRow.offsetHeight;
     const heightDifference = currentHeight - originalHeight;
-    chatParent.style.marginBottom = `${originalMarginBottom + heightDifference}px`;
+    chatParent.style.marginBottom = `${
+      originalMarginBottom + heightDifference
+    }px`;
   }
 
   // Watch for changes that might affect height
@@ -1096,7 +1198,7 @@ document.fonts.addEventListener("loadingdone", (event) => {
   observer.observe(chatInputRow, {
     childList: true,
     subtree: true,
-    attributes: true
+    attributes: true,
   });
 
   // Also listen for window resize
